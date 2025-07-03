@@ -7,24 +7,32 @@ import JSZip from 'jszip';
 
 const upload = multer({ dest: '/tmp' });
 
+const ALLOWED_ORIGIN = 'https://xml-renamer-frontend.vercel.app';
+
+function setCorsHeaders(res) {
+    res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+}
+
 const apiRoute = nextConnect({
     onError(error, req, res) {
+        setCorsHeaders(res);
         console.error('Erro geral:', error);
-        res.setHeader('Access-Control-Allow-Origin', '*');
         res.status(500).json({ error: `Erro interno: ${error.message}` });
     },
     onNoMatch(req, res) {
-        res.setHeader('Access-Control-Allow-Origin', '*');
+        setCorsHeaders(res);
         res.status(405).json({ error: `Método ${req.method} não permitido` });
     },
 });
 
-// CORS middleware
+// Middleware para CORS + tratamento de OPTIONS
 apiRoute.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', 'https://xml-renamer-frontend.vercel.app');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    if (req.method === 'OPTIONS') return res.status(200).end();
+    setCorsHeaders(res);
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
     next();
 });
 
@@ -42,19 +50,18 @@ apiRoute.post(async (req, res) => {
 
         for (const file of files) {
             const filePath = file.path;
-
             try {
                 const xmlContent = fs.readFileSync(filePath, 'utf8');
                 const parsed = await xml2js.parseStringPromise(xmlContent, { explicitArray: false });
 
-                // Renomear baseado no XML (você pode incluir a lógica real aqui)
+                // Ajuste a lógica de renomeação conforme seu XML
                 const newName = path.parse(file.originalname).name;
 
                 zip.file(`${newName}.xml`, xmlContent);
             } catch (err) {
                 console.error(`Erro ao processar ${file.originalname}:`, err);
             } finally {
-                fs.unlink(filePath, () => { }); // remove arquivo temp sem bloquear
+                fs.unlink(filePath, () => { }); // Remove arquivo temporário
             }
         }
 
@@ -64,8 +71,8 @@ apiRoute.post(async (req, res) => {
         res.setHeader('Content-Disposition', 'attachment; filename=renomeados.zip');
         return res.status(200).send(buffer);
     } catch (err) {
+        setCorsHeaders(res);
         console.error('Erro durante o processamento final:', err);
-        res.setHeader('Access-Control-Allow-Origin', 'https://xml-renamer-frontend.vercel.app');
         return res.status(500).json({ error: 'Falha ao processar os arquivos.' });
     }
 });
