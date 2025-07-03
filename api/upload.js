@@ -10,9 +10,11 @@ const upload = multer({ dest: '/tmp' });
 const apiRoute = nextConnect({
     onError(error, req, res) {
         console.error('Erro geral:', error);
+        res.setHeader('Access-Control-Allow-Origin', '*');
         res.status(500).json({ error: `Erro interno: ${error.message}` });
     },
     onNoMatch(req, res) {
+        res.setHeader('Access-Control-Allow-Origin', '*');
         res.status(405).json({ error: `Método ${req.method} não permitido` });
     },
 });
@@ -31,20 +33,29 @@ apiRoute.use(upload.array('files'));
 apiRoute.post(async (req, res) => {
     try {
         const files = req.files;
+        if (!files || files.length === 0) {
+            console.warn('Nenhum arquivo recebido.');
+            return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
+        }
+
         const zip = new JSZip();
 
         for (const file of files) {
             const filePath = file.path;
-            const xmlContent = fs.readFileSync(filePath, 'utf8');
 
-            const parsed = await xml2js.parseStringPromise(xmlContent, { explicitArray: false });
-            let newName = path.parse(file.originalname).name;
+            try {
+                const xmlContent = fs.readFileSync(filePath, 'utf8');
+                const parsed = await xml2js.parseStringPromise(xmlContent, { explicitArray: false });
 
-            // Você pode colocar aqui sua lógica para renomear baseado em XML
+                // Renomear baseado no XML (você pode incluir a lógica real aqui)
+                const newName = path.parse(file.originalname).name;
 
-            zip.file(`${newName}.xml`, xmlContent);
-
-            fs.unlinkSync(filePath); // remove temp
+                zip.file(`${newName}.xml`, xmlContent);
+            } catch (err) {
+                console.error(`Erro ao processar ${file.originalname}:`, err);
+            } finally {
+                fs.unlink(filePath, () => { }); // remove arquivo temp sem bloquear
+            }
         }
 
         const buffer = await zip.generateAsync({ type: 'nodebuffer' });
@@ -53,7 +64,8 @@ apiRoute.post(async (req, res) => {
         res.setHeader('Content-Disposition', 'attachment; filename=renomeados.zip');
         return res.status(200).send(buffer);
     } catch (err) {
-        console.error('Erro durante processamento:', err);
+        console.error('Erro durante o processamento final:', err);
+        res.setHeader('Access-Control-Allow-Origin', 'https://xml-renamer-frontend.vercel.app');
         return res.status(500).json({ error: 'Falha ao processar os arquivos.' });
     }
 });
