@@ -71,6 +71,7 @@ app.post('/upload', upload.array('files'), async (req, res) => {
     res.send(buffer);
 });
 
-app.listen(3001, () => {
-    console.log('Server rodando na porta 3001');
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+    console.log(`Server rodando na porta ${PORT}`);
 });
