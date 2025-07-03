@@ -16,6 +16,18 @@ const apiRoute = nextConnect({
     },
 });
 
+// CORS middleware
+apiRoute.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', 'https://xml-renamer-frontend.vercel.app');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+    next();
+});
+
 apiRoute.use(upload.array('files'));
 
 apiRoute.post(async (req, res) => {
@@ -23,19 +35,13 @@ apiRoute.post(async (req, res) => {
     const zip = new JSZip();
 
     for (const file of files) {
-        try {
-            const xmlContent = fs.readFileSync(file.path, 'utf-8');
-            const parsed = await xml2js.parseStringPromise(xmlContent, { explicitArray: false });
+        const xmlContent = fs.readFileSync(file.path, 'utf-8');
+        const parsed = await xml2js.parseStringPromise(xmlContent, { explicitArray: false });
 
-            // lógica para novo nome aqui (igual seu código)
-            let newName = path.parse(file.originalname).name;
+        let newName = path.parse(file.originalname).name; // sua lógica aqui
 
-            // ... mesma lógica para newName
-
-            zip.file(`${newName}.xml`, xmlContent);
-        } finally {
-            fs.unlinkSync(file.path);
-        }
+        zip.file(`${newName}.xml`, xmlContent);
+        fs.unlinkSync(file.path); // limpa temp
     }
 
     const buffer = await zip.generateAsync({ type: 'nodebuffer' });
@@ -47,7 +53,7 @@ apiRoute.post(async (req, res) => {
 
 export const config = {
     api: {
-        bodyParser: false, // multer precisa disso
+        bodyParser: false, // necessário pro multer
     },
 };
 
