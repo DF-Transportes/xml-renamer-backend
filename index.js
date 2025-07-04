@@ -10,7 +10,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({ dest: 'upload/' });
 
 app.post('/upload', upload.array('files'), async (req, res) => {
     const files = req.files;
