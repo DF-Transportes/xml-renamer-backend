@@ -14,9 +14,16 @@ const upload = multer({ dest: 'upload/' });
 
 app.post('/upload', upload.array('files'), async (req, res) => {
     const files = req.files;
-    const zip = new JSZip();
 
-    // Controle de nomes dentro de cada pasta
+    // 🚫 Limite de arquivos
+    if (files.length > 500) {
+        for (const file of files) {
+            fs.unlinkSync(file.path); // remove temporários
+        }
+        return res.status(400).json({ error: 'Limite de 500 arquivos excedido.' });
+    }
+
+    const zip = new JSZip();
     const folderNameTracker = {}; // { '600': { '263_600': 1, ... }, ... }
 
     for (const file of files) {
