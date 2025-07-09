@@ -15,16 +15,15 @@ const upload = multer({ dest: 'upload/' });
 app.post('/upload', upload.array('files'), async (req, res) => {
     const files = req.files;
 
-    // 🚫 Limite de arquivos
     if (files.length > 500) {
         for (const file of files) {
-            fs.unlinkSync(file.path); // remove temporários
+            fs.unlinkSync(file.path);
         }
         return res.status(400).json({ error: 'Limite de 500 arquivos excedido.' });
     }
 
     const zip = new JSZip();
-    const folderNameTracker = {}; // { '600': { '263_600': 1, ... }, ... }
+    const nameTracker = {}; // { '263_600': 1, '263_600_2': 1 }
 
     for (const file of files) {
         try {
@@ -70,21 +69,15 @@ app.post('/upload', upload.array('files'), async (req, res) => {
                 baseName = path.parse(file.originalname).name;
             }
 
-            const folderName = baseName.split('_')[1] || 'outros';
-
-            if (!folderNameTracker[folderName]) {
-                folderNameTracker[folderName] = {};
-            }
-
             let finalName = baseName;
-            if (folderNameTracker[folderName][baseName]) {
-                const count = ++folderNameTracker[folderName][baseName];
-                finalName = `${baseName}_${count}`;
-            } else {
-                folderNameTracker[folderName][baseName] = 1;
+            let suffix = 1;
+            while (nameTracker[`${finalName}.xml`]) {
+                suffix++;
+                finalName = `${baseName}_${suffix}`;
             }
 
-            zip.folder(folderName).file(`${finalName}.xml`, xmlContent);
+            nameTracker[`${finalName}.xml`] = true;
+            zip.file(`${finalName}.xml`, xmlContent);
         } catch (err) {
             console.error(`Erro ao processar ${file.originalname}:`, err);
         } finally {
